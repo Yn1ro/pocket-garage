@@ -645,20 +645,3 @@ Persona считается подтверждённой, если исследо
 | Research Stage        | Discovery           |
 | Next Step             | Customer Interviews |
 | Owner                 | Project Author      |
-
----
-
-> **Product principle:** Persona — это инструмент принятия продуктовых решений, а не художественное описание пользователя. Если реальные данные противоречат persona, persona должна быть изменена.
-
-````
-
----
-
-## Commit
-
-Внизу:
-
-**Commit message:**
-
-```text
-docs: add user persona models and validation criteria
