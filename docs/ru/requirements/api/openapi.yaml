@@ -1,4 +1,3 @@
-```yaml
 openapi: 3.0.3
 info:
   title: Pocket Garage — Vehicle Service API
@@ -174,6 +173,4 @@ components:
         message:
           type: string
           example: "VIN must contain exactly 17 alphanumeric characters excluding I, O, Q."
-
-```
 
