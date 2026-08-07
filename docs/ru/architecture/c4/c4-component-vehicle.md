@@ -41,8 +41,8 @@ flowchart TB
     AppService --> RepoInterface
     AppService --> ProviderInterface
     
-    RepoImpl -.-|> RepoInterface
-    AdapterImpl -.-|> ProviderInterface
+    RepoImpl -. "Implements" .-> RepoInterface
+    AdapterImpl -. "Implements" .-> ProviderInterface
     
     RepoImpl -->|"SQL Queries / ORM"| DB
     AdapterImpl -->|"HTTPS / REST"| ExternalProvider
