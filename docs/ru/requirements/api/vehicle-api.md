@@ -1,145 +1,82 @@
-# API Contract — Vehicle
+# API Contract — Vehicle Subsystem
 
-> Контракт API для сценария UC-001 «Добавление автомобиля по VIN».
-
----
-
-# 1. Назначение
-
-API предоставляет клиентскому приложению возможность:
-
-1. проверить VIN;
-2. получить данные автомобиля;
-3. показать пользователю найденный автомобиль;
-4. создать автомобиль после подтверждения пользователем;
-5. получить список автомобилей пользователя.
-
-API является контрактом между Frontend и Backend.
+> **Паспорт документа**
+> | Параметр | Значение |
+> | --- | --- |
+> | **Модуль** | Vehicle API (`/api/v1/vehicles`) |
+> | **Контекст** | UC-001 «Добавление автомобиля по VIN» |
+> | **Версия** | 1.0 (Draft) |
+> | **Протокол** | REST API (HTTPS / JSON / UTF-8) |
+> | **Ответственный** | Project Author / Lead Backend Engineer |
+> 
+> 
 
 ---
 
-# 2. Архитектурный контекст
+## 1. Общие технические требования
 
-```text
-┌──────────────┐
-│   Frontend   │
-│ Mobile / Web │
-└──────┬───────┘
-       │
-       │ HTTPS / JSON
-       ↓
-┌────────────────────┐
-│      Backend       │
-│  Карманный гараж   │
-└──────┬─────────────┘
-       │
-       │ HTTPS
-       ↓
-┌────────────────────┐
-│ Vehicle Data       │
-│ Provider           │
-└────────────────────┘
-````
+* **Базовый URL:** `/api/v1`
+* **Авторизация:** `Authorization: Bearer <access_token>` (OAuth 2.0 / JWT)
+* **Трассировка:** Заголовок `X-Request-ID: <uuid>` обязателен для всех запросов для сквозного логирования.
+* **Идемпотентность:** Заголовок `Idempotency-Key: <uuid>` обязателен для мутирующих методов (`POST /api/v1/vehicles`).
 
 ---
 
-# 3. Общие требования API
+## 2. Архитектура и Сценарий взаимодействия
 
-## 3.1. Протокол
+Процесс добавления авто разделен на два этапа (**Lookup** $\rightarrow$ **Creation**), чтобы исключить создание фантомных записей в БД до подтверждения пользователем.
 
-HTTPS.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Пользователь
+    participant FE as Frontend (App/Web)
+    participant BE as Backend ("Карманный гараж")
+    participant Ext as External Data Provider
+    participant DB as Database
 
-## 3.2. Формат
+    User->>FE: Вводит VIN
+    FE->>BE: POST /api/v1/vehicles/lookup {vin}
+    BE->>BE: Валидация и нормализация VIN
+    BE->>Ext: GET /vehicle-data?vin=...
+    Ext-->>BE: Данные по авто
+    BE->>BE: Генерация temporary VehiclePreview
+    BE-->>FE: 200 OK (data + vehiclePreviewId)
+    FE-->>User: Отображает карточку (Марка, Модель, Год)
+    
+    User->>FE: Подтверждает "Добавить в гараж"
+    FE->>BE: POST /api/v1/vehicles {vehiclePreviewId} (Idempotency-Key)
+    BE->>DB: Сохранение Vehicle & привязка к User ID
+    DB-->>BE: Запись создана
+    BE-->>FE: 201 Created (Full Vehicle Data)
+    FE-->>User: Отображает авто в «Цифровом гараже»
 
-JSON.
-
-## 3.3. Кодировка
-
-UTF-8.
-
-## 3.4. Версионирование
-
-Используется версия API:
-
-```text
-/api/v1
 ```
 
 ---
 
-# 4. Авторизация
+## 3. Эндпоинты спецификации
 
-Для защищённых endpoints используется:
-
-```http
-Authorization: Bearer <access_token>
-```
-
-Пользователь должен быть авторизован.
-
----
-
-# 5. Endpoint: Поиск автомобиля по VIN
-
-## POST
+### 3.1. Предварительный поиск по VIN (Lookup)
 
 ```http
 POST /api/v1/vehicles/lookup
-```
-
-Назначение:
-
-Получение информации об автомобиле по VIN без создания записи Vehicle.
-
----
-
-# 6. Request
-
-## Headers
-
-```http
-Authorization: Bearer <access_token>
 Content-Type: application/json
-X-Request-ID: <uuid>
+Authorization: Bearer <access_token>
+X-Request-ID: 7f2c1d6e-1111-4444-8888-123456789abc
+
 ```
 
----
-
-## Body
+#### Request Body
 
 ```json
 {
   "vin": "JTNB11HK5K3000001"
 }
+
 ```
 
----
-
-# 7. Request Parameters
-
-| Поле | Тип    | Обязательное | Описание       |
-| ---- | ------ | -----------: | -------------- |
-| vin  | string |           Да | VIN автомобиля |
-
----
-
-# 8. VIN Validation
-
-Перед отправкой запроса Backend должен выполнить серверную валидацию.
-
-Минимальные проверки:
-
-1. значение не пустое;
-2. длина соответствует ожидаемому формату;
-3. используются допустимые символы;
-4. VIN нормализован;
-5. отсутствуют недопустимые символы.
-
----
-
-# 9. Successful Response
-
-## HTTP 200 OK
+#### Response (200 OK)
 
 ```json
 {
@@ -156,81 +93,32 @@ X-Request-ID: <uuid>
     }
   }
 }
+
 ```
 
 ---
 
-# 10. Vehicle Preview
-
-Важно разделять:
-
-```text
-Vehicle Preview
-```
-
-и
-
-```text
-Vehicle
-```
-
-На этапе lookup автомобиль ещё не должен считаться созданным.
-
-Система сначала получает данные:
-
-```text
-VIN
- ↓
-Lookup
- ↓
-Vehicle Preview
- ↓
-User Confirmation
- ↓
-Vehicle Creation
-```
-
-Это предотвращает создание автомобилей без явного подтверждения пользователя.
-
----
-
-# 11. Endpoint: Создание автомобиля
-
-## POST
+### 3.2. Создание автомобиля в гараже
 
 ```http
 POST /api/v1/vehicles
-```
-
-Назначение:
-
-Создание автомобиля после подтверждения пользователем.
-
----
-
-# 12. Request
-
-```http
-POST /api/v1/vehicles
-Authorization: Bearer <access_token>
 Content-Type: application/json
-Idempotency-Key: <uuid>
-X-Request-ID: <uuid>
+Authorization: Bearer <access_token>
+Idempotency-Key: e4a31b2c-9999-4444-8888-987654321xyz
+X-Request-ID: 7f2c1d6e-1111-4444-8888-123456789abc
+
 ```
 
-Body:
+#### Request Body
 
 ```json
 {
   "vehiclePreviewId": "vp_01J123456789"
 }
+
 ```
 
----
-
-# 13. Successful Response
-
-## HTTP 201 Created
+#### Response (201 Created)
 
 ```json
 {
@@ -248,27 +136,21 @@ Body:
     "createdAt": "2026-08-07T12:00:00Z"
   }
 }
+
 ```
 
 ---
 
-# 14. Endpoint: Получение автомобилей пользователя
-
-## GET
+### 3.3. Получение списка автомобилей пользователя
 
 ```http
 GET /api/v1/vehicles
+Authorization: Bearer <access_token>
+X-Request-ID: 7f2c1d6e-1111-4444-8888-123456789abc
+
 ```
 
-Назначение:
-
-Получение автомобилей текущего пользователя.
-
----
-
-# 15. Successful Response
-
-## HTTP 200 OK
+#### Response (200 OK)
 
 ```json
 {
@@ -285,31 +167,21 @@ GET /api/v1/vehicles
     "total": 1
   }
 }
+
 ```
 
 ---
 
-# 16. Получение конкретного автомобиля
-
-## GET
+### 3.4. Получение подробной карточки автомобиля
 
 ```http
 GET /api/v1/vehicles/{vehicleId}
+Authorization: Bearer <access_token>
+X-Request-ID: 7f2c1d6e-1111-4444-8888-123456789abc
+
 ```
 
----
-
-# 17. Path Parameters
-
-| Параметр  | Тип    | Обязательное | Описание                 |
-| --------- | ------ | -----------: | ------------------------ |
-| vehicleId | string |           Да | Идентификатор автомобиля |
-
----
-
-# 18. Successful Response
-
-## HTTP 200 OK
+#### Response (200 OK)
 
 ```json
 {
@@ -326,355 +198,116 @@ GET /api/v1/vehicles/{vehicleId}
     }
   }
 }
+
 ```
 
 ---
 
-# 19. HTTP Status Codes
+## 4. Безопасность и правила валидации
 
-| Status | Значение              | Использование               |
-| -----: | --------------------- | --------------------------- |
-|    200 | OK                    | Успешный GET / lookup       |
-|    201 | Created               | Автомобиль создан           |
-|    400 | Bad Request           | Некорректный запрос         |
-|    401 | Unauthorized          | Пользователь не авторизован |
-|    403 | Forbidden             | Нет доступа                 |
-|    404 | Not Found             | Ресурс не найден            |
-|    409 | Conflict              | Конфликт / дубликат         |
-|    422 | Unprocessable Entity  | Ошибка бизнес-валидации     |
-|    429 | Too Many Requests     | Превышен rate limit         |
-|    500 | Internal Server Error | Внутренняя ошибка           |
-|    502 | Bad Gateway           | Ошибка внешнего провайдера  |
-|    503 | Service Unavailable   | Сервис временно недоступен  |
+### Серверные проверки VIN
+
+1. **Формат:** 17 символов, латиница и цифры (исключая `I`, `O`, `Q`).
+2. **Нормализация:** Приведение всех символов к верхнему регистру (UPPERCASE) и удаление дефисов/пробелов.
+3. **Безопасность сторонних данных:** Данные внешнего провайдера валидируются и санитайзятся на Backend перед записью в БД.
+4. **Маскирование:** В публичных списках VIN отображается с маской: `JTNB********0001`.
 
 ---
 
-# 20. Error Response
+## 5. Коды ответов и Обработка ошибок
 
-Все ошибки должны возвращаться в едином формате.
+### Стандартные HTTP-коды
 
-```json
-{
-  "error": {
-    "code": "VEHICLE_NOT_FOUND",
-    "message": "Не удалось найти автомобиль по указанному VIN.",
-    "requestId": "7f2c1d6e-1111-4444-8888-123456789abc"
-  }
-}
-```
+| Статус | Код | Описание сценария |
+| --- | --- | --- |
+| **200** | OK | Успешное выполнение `GET` или `lookup` |
+| **201** | Created | Автомобиль успешно создан |
+| **400** | Bad Request | Неверный синтаксис запроса или формата VIN |
+| **401** | Unauthorized | Токен авторизации отсутствует или невалиден |
+| **403** | Forbidden | Нет прав доступа к запрашиваемому `vehicleId` |
+| **404** | Not Found | Автомобиль или `vehiclePreviewId` не найден |
+| **409** | Conflict | Автомобиль с таким VIN уже добавлен пользователем |
+| **422** | Unprocessable Entity | Ошибка бизнес-валидации |
+| **429** | Too Many Requests | Превышен лимит запросов к API |
+| **502** | Bad Gateway | Внешний провайдер авто-данных недоступен |
 
----
-
-# 21. Error Codes
-
-## VIN_INVALID
-
-VIN имеет некорректный формат.
+### Единая структура ошибки
 
 ```json
 {
   "error": {
     "code": "VIN_INVALID",
-    "message": "Проверьте корректность VIN.",
-    "requestId": "..."
+    "message": "Проверьте корректность введённого VIN-кода.",
+    "requestId": "7f2c1d6e-1111-4444-8888-123456789abc"
   }
 }
+
 ```
 
-HTTP:
+### Справочник бизнес-ошибок
 
-```text
-400
-```
-
----
-
-## VEHICLE_NOT_FOUND
-
-Автомобиль не найден у внешнего поставщика данных.
-
-HTTP:
-
-```text
-404
-```
+| Код ошибки | HTTP Статус | Описание |
+| --- | --- | --- |
+| `VIN_INVALID` | 400 | VIN не прошел валидацию формата или контрольную сумму |
+| `VEHICLE_NOT_FOUND` | 404 | Автомобиль не найден в реестре внешнего поставщика |
+| `PREVIEW_EXPIRED` | 404 | Срок действия `vehiclePreviewId` истек |
+| `VEHICLE_ALREADY_EXISTS` | 409 | Запись с таким VIN уже привязана к аккаунту |
+| `VEHICLE_ACCESS_DENIED` | 403 | Запрошен чужой `vehicleId` |
+| `VEHICLE_PROVIDER_UNAVAILABLE` | 502 | Таймаут или сбой API внешнего провайдера |
 
 ---
 
-## VEHICLE_ALREADY_EXISTS
+## 6. Трассируемость (Traceability Matrix)
 
-Автомобиль уже добавлен текущим пользователем.
+### Маппинг бизнес-правил (Business Rules Mapping)
 
-HTTP:
+| Код правила | Описание правила | Реализация в API |
+| --- | --- | --- |
+| **BRULE-001** | Обязательность валидации VIN | Серверный фильтр валидации в `POST /vehicles/lookup` |
+| **BRULE-002** | Автомобиль всегда имеет владельца | Автоматическая привязка `User ID` из JWT-токена в `POST /vehicles` |
+| **BRULE-003** | Контроль дубликатов | Проверка уникальности пары `(user_id, vin)` $\rightarrow$ `409 Conflict` |
+| **BRULE-004** | Изоляция данных пользователей | Проверка прав собственности на `vehicleId` в middleware |
+| **BRULE-005** | Защита от повторных отправка форм | Обработка `Idempotency-Key` при создании авто |
 
-```text
-409
-```
+### Маппинг функциональных требований (FR Mapping)
 
----
-
-## VEHICLE_PROVIDER_UNAVAILABLE
-
-Внешний источник данных временно недоступен.
-
-HTTP:
-
-```text
-502
-```
-
----
-
-## VEHICLE_ACCESS_DENIED
-
-Пользователь не имеет доступа к указанному автомобилю.
-
-HTTP:
-
-```text
-403
-```
+| Код FR | Описание требования | Реализация в API |
+| --- | --- | --- |
+| **FR-001** | Добавление ТС по VIN | `POST /api/v1/vehicles` |
+| **FR-002** | Декодирование VIN | `POST /api/v1/vehicles/lookup` |
+| **FR-003** | Интеграция с внешним API | Внутренний HTTP-клиент в ручке `/lookup` |
+| **FR-004** | Просмотр списка авто | `GET /api/v1/vehicles` |
+| **FR-005** | Просмотр деталей авто | `GET /api/v1/vehicles/{vehicleId}` |
 
 ---
 
-# 22. Idempotency
+## 7. Открытые вопросы и Перспективы
 
-Создание автомобиля должно поддерживать идемпотентность.
+### Открытые вопросы (Open Questions)
 
-Для:
+* **OQ-API-001:** Какой конкретно вендор внешнего API данных (Carquery, Drom, Auto.ru, VinDecoder) выбирается в качестве основного/резервного?
+* **OQ-API-002:** Каков exact TTL (время жизни) записи `Vehicle Preview` до сброса (сейчас предполагается 15-30 минут)?
+* **OQ-API-003:** Требуется ли кэширование ответов внешнего провайдера по VIN в Redis для экономии стоимости API-запросов?
 
-```http
-POST /api/v1/vehicles
-```
+### Будущие эндпоинты (Future Scope)
 
-клиент передаёт:
+В следующих версиях API (v1.x / v2.0) запланировано добавление:
 
-```http
-Idempotency-Key: <uuid>
-```
-
-Если один и тот же запрос повторяется с тем же ключом, система не должна создавать несколько автомобилей.
-
----
-
-# 23. Request ID
-
-Каждый запрос должен иметь:
-
-```http
-X-Request-ID
-```
-
-Идентификатор используется для:
-
-* поиска запроса в логах;
-* расследования ошибок;
-* мониторинга;
-* поддержки пользователей.
+* `PUT /api/v1/vehicles/{vehicleId}` — Редактирование параметров авто
+* `DELETE /api/v1/vehicles/{vehicleId}` — Удаление (Soft Delete) авто из гаража
+* `GET /api/v1/vehicles/{vehicleId}/history` — Получение полной сервисной истории
+* `GET /api/v1/vehicles/{vehicleId}/expenses` — Сводка расходов по ТС
 
 ---
 
-# 24. Security
+## 8. Статус готовности
 
-## 24.1. Authorization
-
-Пользователь может работать только со своими Vehicle records.
-
----
-
-## 24.2. VIN Privacy
-
-В списках автомобилей VIN не должен отображаться полностью без необходимости.
-
-Пример:
-
-```text
-JTNB********0001
-```
-
----
-
-## 24.3. Input Validation
-
-Все входные данные должны валидироваться на Backend независимо от client-side validation.
-
----
-
-## 24.4. External Data
-
-Данные внешнего поставщика не должны автоматически считаться доверенными.
-
-Backend должен:
-
-1. валидировать ответ;
-2. нормализовать данные;
-3. проверить обязательные поля;
-4. только после этого сохранять данные.
-
----
-
-# 25. Sequence Diagram
-
-```text
-User
- │
- │ Enter VIN
- ↓
-Frontend
- │
- │ POST /vehicles/lookup
- ↓
-Backend
- │
- │ Validate VIN
- │
- │ GET external provider
- ↓
-Vehicle Data Provider
- │
- │ Vehicle Data
- ↓
-Backend
- │
- │ Normalize
- │
- │ Vehicle Preview
- ↓
-Frontend
- │
- │ Display Preview
- │
- │ User confirms
- │
- │ POST /vehicles
- ↓
-Backend
- │
- │ Create Vehicle
- ↓
-Database
- │
- │ Vehicle Created
- ↓
-Backend
- │
- │ 201 Created
- ↓
-Frontend
- │
- ↓
-Digital Garage
-```
-
----
-
-# 26. Business Rules → API Mapping
-
-| Business Rule | API Implementation                  |
-| ------------- | ----------------------------------- |
-| BRULE-001     | VIN validation                      |
-| BRULE-002     | User-Vehicle relationship           |
-| BRULE-003     | Unique constraint / duplicate check |
-| BRULE-004     | Authorization                       |
-| BRULE-005     | Transaction                         |
-| BRULE-006     | External response validation        |
-| BRULE-007     | Required field validation           |
-
----
-
-# 27. Functional Requirements → API Mapping
-
-| Functional Requirement | API                               |
-| ---------------------- | --------------------------------- |
-| FR-001                 | POST /vehicles                    |
-| FR-002                 | POST /vehicles/lookup             |
-| FR-003                 | VIN validation                    |
-| FR-004                 | Vehicle Data Provider integration |
-| FR-005                 | Data normalization                |
-| FR-006                 | Vehicle Preview                   |
-| FR-007                 | POST /vehicles                    |
-| FR-008                 | Vehicle creation                  |
-| FR-009                 | User-Vehicle relation             |
-| FR-010                 | Duplicate detection               |
-| FR-011                 | Error model                       |
-| FR-012                 | Retry                             |
-
----
-
-# 28. Open Questions
-
-## OQ-API-001
-
-Какой конкретно внешний поставщик данных используется?
-
----
-
-## OQ-API-002
-
-Какие ограничения по количеству запросов существуют у поставщика?
-
----
-
-## OQ-API-003
-
-Нужно ли хранить полный VIN в базе данных?
-
----
-
-## OQ-API-004
-
-Как долго действителен Vehicle Preview?
-
----
-
-## OQ-API-005
-
-Нужно ли кэшировать результаты VIN lookup?
-
----
-
-## OQ-API-006
-
-Какие поля являются обязательными для создания Vehicle?
-
----
-
-## OQ-API-007
-
-Как обрабатываются изменения данных автомобиля после создания?
-
----
-
-# 29. Future Considerations
-
-В будущих версиях API могут появиться:
-
-```text
-PUT /api/v1/vehicles/{vehicleId}
-DELETE /api/v1/vehicles/{vehicleId}
-GET /api/v1/vehicles/{vehicleId}/history
-GET /api/v1/vehicles/{vehicleId}/expenses
-GET /api/v1/vehicles/{vehicleId}/maintenance
-GET /api/v1/vehicles/{vehicleId}/documents
-```
-
-Они не входят в текущий MVP API Contract.
-
----
-
-# 30. Current Status
-
-| Area                 | Status         |
-| -------------------- | -------------- |
-| API Contract         | Draft          |
-| Endpoints            | Defined        |
-| Request Models       | Defined        |
-| Response Models      | Defined        |
-| Error Model          | Defined        |
-| Security             | Initial        |
-| Idempotency          | Defined        |
-| Sequence             | Defined        |
-| External Integration | Hypothesis     |
-| Validation           | Not Completed  |
-| Next Step            | Data Model     |
-| Owner                | Project Author |
+| Компонент | Статус |
+| --- | --- |
+| **API Contract Schema** | Defined |
+| **Endpoints Definition** | Defined |
+| **Error Handling Model** | Defined |
+| **Sequence Diagram** | Complete |
+| **OpenAPI / Swagger Spec** | In Progress (Next Step) |
+| **Mock Server Deployment** | Planned |
+| **Ответственный** | Project Author / Lead Backend Engineer |
