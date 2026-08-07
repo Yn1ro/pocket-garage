@@ -144,9 +144,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     AppService["Application Service"] -->|"1. Call Interface"| RepoInt["Repository Interface"]
-    RepoImpl["Repository Implementation"] -.-|>|"2. Implements"| RepoInt
+    RepoImpl["Repository Implementation"] -. "2. Implements" .-> RepoInt
     RepoImpl -->|"3. Execute SQL"| DB[("PostgreSQL")]
-
 ```
 
 ### Rule 3: Изоляция внешних поставщиков (Adapter Pattern)
@@ -156,9 +155,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     Domain["Domain Logic"] -->|"Depends on"| Interface["Vehicle Provider Interface"]
-    Adapter["Provider Adapter"] -.-|>|"Implements"| Interface
+    Adapter["Provider Adapter"] -. "Implements" .-> Interface
     Adapter -->|"HTTP Call"| ExternalAPI["External VIN API"]
-
 ```
 
 ---
