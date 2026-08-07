@@ -167,8 +167,3 @@ graph TB
 | **Статус** | Approved |
 | **Версия** | 1.0.0 |
 | **Авторы** | System Analysis Team |
-
-```
-
-
-```
