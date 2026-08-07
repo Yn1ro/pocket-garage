@@ -1,0 +1,179 @@
+```yaml
+openapi: 3.0.3
+info:
+  title: Pocket Garage — Vehicle Service API
+  description: REST API микросервиса управления автомобилями и декодирования VIN.
+  version: 1.0.0
+servers:
+  - url: https://api.pocket-garage.ru/v1
+    description: Production API Gateway
+  - url: https://dev-api.pocket-garage.ru/v1
+    description: Staging Environment
+
+paths:
+  /vehicles/lookup:
+    post:
+      summary: Декодирование VIN и получение предпросмотра
+      description: Отправляет VIN на проверку внешнему провайдеру и возвращает временную сущность Vehicle Preview.
+      operationId: lookupVehicle
+      tags:
+        - Vehicles
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VinLookupRequest'
+      responses:
+        '200':
+          description: Автомобиль успешно найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehiclePreviewResponse'
+        '400':
+          description: Некорректный формат VIN (ошибка валидации)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Автомобиль не найден в базе провайдера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Внешний провайдер данных временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vehicles:
+    post:
+      summary: Подтверждение и добавление ТС в гараж
+      description: Создает постоянную запись Vehicle на основе полученного previewId и привязывает её к текущему пользователю.
+      operationId: createVehicle
+      tags:
+        - Vehicles
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVehicleRequest'
+      responses:
+        '201':
+          description: Автомобиль успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleCreatedResponse'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Данный автомобиль уже привязан к текущему аккаунту
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    VinLookupRequest:
+      type: object
+      required:
+        - vin
+      properties:
+        vin:
+          type: string
+          example: "JTNB11HK5K3000001"
+          pattern: '^[A-HJ-NPR-Z0-9]{17}$'
+          description: 17-значный VIN-код без букв I, O, Q
+
+    VehiclePreviewResponse:
+      type: object
+      required:
+        - previewId
+        - manufacturer
+        - model
+      properties:
+        previewId:
+          type: string
+          format: uuid
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        manufacturer:
+          type: string
+          example: "Toyota"
+        model:
+          type: string
+          example: "Camry"
+        generation:
+          type: string
+          example: "XV70"
+        productionYear:
+          type: integer
+          example: 2020
+        engineVolume:
+          type: number
+          format: float
+          example: 2.5
+
+    CreateVehicleRequest:
+      type: object
+      required:
+        - previewId
+      properties:
+        previewId:
+          type: string
+          format: uuid
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+
+    VehicleCreatedResponse:
+      type: object
+      required:
+        - id
+        - vin
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b1fbc999-1c0b-4ef8-bb6d-7bb9bd380a22"
+        vin:
+          type: string
+          example: "JTNB11HK5K3000001"
+        status:
+          type: string
+          example: "ACTIVE"
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "INVALID_VIN_FORMAT"
+        message:
+          type: string
+          example: "VIN must contain exactly 17 alphanumeric characters excluding I, O, Q."
+
+```
+
