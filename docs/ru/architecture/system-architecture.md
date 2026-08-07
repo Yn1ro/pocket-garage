@@ -1,169 +1,367 @@
 # System Architecture — Карманный гараж
 
-> **Паспорт архитектурного документа**
-> 
-> | Параметр | Значение |
-> | :--- | :--- |
-> | **Продукт** | Платформа «Карманный гараж» |
-> | **Тип документа** | High-Level Architecture (C4 Model) |
-> | **Версия** | 1.0 (MVP) |
-> | **Стиль архитектуры** | Microservices / Event-Driven Architecture (EDA) |
+> Спецификация системной архитектуры MVP-версии платформы «Карманный гараж».
 
 ---
 
-## 1. Назначение и Принципы
+## 1. Назначение
 
-Документ описывает верхнеуровневую техническую организацию системы, распределение ответственности между микросервисами, каналы связи, хранилища данных и интеграции с внешними провайдерами.
+Документ описывает архитектуру MVP платформы «Карманный гараж», ключевые компоненты системы, внешние интеграционные контуры, границы ответственности сервисов и принципы их взаимодействия.
 
-### Ключевые архитектурные принципы
-* **Loose Coupling (Слабая связанность):** Каждый микросервис отвечает за собственную предметную область (Bounded Context) и владеет изолированной БД (Database per Service).
-* **Event-Driven Async First:** Длительные и фоновые процессы (уведомления, аналитика) выполняются асинхронно через шину сообщений Apache Kafka.
-* **Stateless API Services:** Сервисы не хранят состояние сессий, что позволяет масштабировать их горизонтально.
-* **Security in Depth:** Единая точка входа (API Gateway) выполняет проверку JWT, Rate Limiting и защиту приватного контура.
+Архитектура спроектирована с учетом жестких ограничений MVP-скопа и возможностью бесшовного горизонтального масштабирования и распила на микросервисы при росте нагрузки.
 
 ---
 
-## 2. C4 Model — Level 1: Context Diagram
+## 2. Архитектурный подход
 
-Показывает взаимодействие системы «Карманный гараж» с пользователями и внешними сервисами.
+Для MVP выбран паттерн **Модульный монолит (Modular Monolith)** с чётким логическим и изолированным разделением на бизнес-модули внутри единой кодовой базы.
 
-```mermaid
-graph TB
-    subgraph Users ["Пользователи"]
-        VO[Vehicle Owner / Автовладелец]
-        SP[Service Provider / Автосервис]
-    end
+---
 
-    subgraph System ["Платформа «Карманный гараж»"]
-        PG[Pocket Garage System]
-    end
+## 3. Обоснование выбора Modular Monolith
 
-    subgraph External ["Внешние системы"]
-        VDP[Vehicle Data Provider<br/>Декодирование VIN]
-        PAY[Payment Gateway<br/>Платёжный шлюз]
-        NS[Push / SMS Gateway<br/>Сервис уведомлений]
-    end
+На этапе запуска выделение системы в независимые микросервисы избыточно. Микросервисная архитектура на данном этапе привела бы к:
 
-    VO -->|Управление авто, запись на СТО| PG
-    SP -->|Обработка заявок, управление СТО| PG
-    PG -->|HTTPS / REST: Декодирование VIN| VDP
-    PG -->|HTTPS / REST: Эквайринг| PAY
-    PG -->|HTTPS / REST: Отправка Push/SMS| NS
+* Избыточной сетевой связности и задержкам (network latency);
+* Необходимости внедрения Service Discovery и Distributed Tracing;
+* Появлению дополнительных точек отказа (SPOF);
+* Усложнению процессов сборки, деплоя и CI/CD;
+* Существенному росту DevOps-затрат и стоимости инфраструктуры.
 
-    style PG fill:#0284c7,color:#fff,stroke:#0369a1,stroke-width:2px
-    style Users fill:#f8fafc,stroke:#64748b
-    style External fill:#f1f5f9,stroke:#64748b
+В MVP отсутствует нагрузка, оправдывающая подобную инженерную сложность.
+
+```text
+  [ Single Codebase ]
+         │
+         ├── Auth Module
+         ├── Vehicle Module
+         ├── Expense Module
+         ├── Maintenance Module
+         ├── Service Module
+         └── Booking Module
+         │
+  [ Single Database (PostgreSQL) ]
 
 ```
 
 ---
 
-## 3. C4 Model — Level 2: Container Diagram
+## 4. Архитектурные принципы
 
-Раскрывает внутреннее устройство системы: клиенты, API Gateway, микросервисы, хранилища данных и асинхронные шины.
+1. **API-first:** Вся функциональность системы проектируется и специфицируется через API (OpenAPI 3.0) до реализации.
+2. **Separation of Concerns:** Четкая изоляция слоев (API Layer → Service Layer → Data Access Layer).
+3. **Модульность:** Каждая доменная область изолирована в рамках своего пакета/модуля.
+4. **Централизация бизнес-логики:** Клиентские приложения (Frontend/Mobile) не содержат бизнес-правил, а выступают тонким клиентом.
+5. **Низкая связность (Low Coupling):** Модули взаимодействуют между собой через четко определенные внутренние контракты/интерфейсы.
+6. **Защита пользовательских данных:** Избыточные и чувствительные данные не передаются на клиент и зашифрованы в БД.
+7. **Идемпотентность:** Критичные операции (создание бронирований, проведение платежей) идемпотентны.
+8. **Наблюдаемость (Observability):** Сквозное логирование и сбор метрик с первых релизов.
+9. **Готовность к распилу (Microservice Ready):** Границы модулей проектируются с учетом потенциального выделения в отдельные сервисы.
+10. **MVP-first:** Приоритет отдается простым и эффективным решениям без овер-инжиниринга.
+
+---
+
+## 5. High-Level Architecture
 
 ```mermaid
-graph TB
-    subgraph Clients ["Client Layer"]
-        Mob[Mobile App<br/>Flutter / iOS & Android]
-        Web[Web Client<br/>React / Next.js]
+graph TD
+    User([Пользователь]) -->|HTTPS / JSON| FE[Mobile / Web Frontend]
+    FE -->|HTTPS / REST API| BE[Backend Core: Modular Monolith]
+
+    subgraph BE [Backend Application Scope]
+        Auth[Auth Module]
+        Vehicles[Vehicle Module]
+        Expenses[Expense Module]
+        Maint[Maintenance Module]
+        Services[Service Module]
+        Booking[Booking Module]
     end
 
-    subgraph Edge ["Edge Layer"]
-        GW[API Gateway<br/>Kong / Nginx<br/><i>Auth, Rate Limit, Routing</i>]
-    end
-
-    subgraph Services ["Core Microservices Domain"]
-        US[User & Auth Service<br/><i>Пользователи, JWT Auth</i>]
-        VS[Vehicle Service<br/><i>Гараж, VIN Lookup, Preview</i>]
-        BS[Booking & Catalog Service<br/><i>СТО, Каталог услуг, Заявки</i>]
-        ES[Expense & Maintenance Service<br/><i>История ТО, Расходы</i>]
-        NotifS[Notification Service<br/><i>Push / Email / SMS Worker</i>]
-    end
-
-    subgraph Persistence ["Data & Event Bus Layer"]
-        DB_User[(User DB<br/>PostgreSQL)]
-        DB_Veh[(Vehicle DB<br/>PostgreSQL)]
-        DB_Book[(Booking DB<br/>PostgreSQL)]
-        Redis[(Redis Cache<br/><i>Sessions, VIN Cache</i>)]
-        S3[(Object Storage S3<br/><i>Чеки, Фото СТО</i>)]
-        Kafka{{Apache Kafka<br/><i>Event Bus</i>}}
-    end
-
-    subgraph External ["External Services"]
-        ExtVIN[Vehicle Data Provider]
-    end
-
-    Mob -->|HTTPS / REST / JSON| GW
-    Web -->|HTTPS / REST / JSON| GW
-
-    GW -->|gRPC / REST| US
-    GW -->|gRPC / REST| VS
-    GW -->|gRPC / REST| BS
-    GW -->|gRPC / REST| ES
-
-    US --- DB_User
-    VS --- DB_Veh
-    BS --- DB_Book
-    
-    VS -.->|Cache lookup| Redis
-    VS -->|HTTPS / REST| ExtVIN
-    ES -->|Upload receipts| S3
-
-    VS -- "Event: vehicle.created" --> Kafka
-    BS -- "Event: booking.status_changed" --> Kafka
-    Kafka --> NotifS
-
-    style GW fill:#0f172a,color:#fff
-    style Kafka fill:#d97706,color:#fff
-    style Redis fill:#dc2626,color:#fff
-    style DB_User fill:#16a34a,color:#fff
-    style DB_Veh fill:#16a34a,color:#fff
-    style DB_Book fill:#16a34a,color:#fff
+    BE -->|SQL / TCP| DB[(PostgreSQL Main DB)]
+    BE -->|S3 Protocol| S3[(Object Storage / MinIO)]
+    BE -->|REST / HTTPS| External[External APIs / Integrations]
 
 ```
 
 ---
 
-## 4. Спецификация микросервисов
+## 6. Компоненты системы
 
-| Компонент | Зона ответственности | Стек технологий | База данных / Хранилище |
-| --- | --- | --- | --- |
-| **API Gateway** | Единая точка входа, проксирование, проверка JWT, Rate Limiting | Nginx / Kong / Go | Redis (Rate limits) |
-| **User Service** | Регистрация, аутентификация, профили пользователей | Go / Java | PostgreSQL (`users`) |
-| **Vehicle Service** | Управление авто, интеграция с провайдером VIN, Preview | Go / Python | PostgreSQL (`vehicles`), Redis |
-| **Booking Service** | Каталог СТО, график работы, создание и обработка заявок | Java / Go | PostgreSQL (`bookings`, `services`) |
-| **Expense Service** | Учет ТО и расходов, хранение сканов чеков | Node.js / Go | PostgreSQL (`expenses`), S3 / MinIO |
-| **Notification Service** | Асинхронная отправка уведомлений (Kafka Consumer) | Go / Python | — |
+### 6.1. Frontend
+
+Клиентская часть приложения (Web / Mobile).
+
+* Отображение пользовательского UI/UX;
+* Клиентская валидация форм и вводов;
+* Оркестрация клиентских сценариев;
+* Взаимодействие с Backend API по REST;
+* Обработка и отображение ошибок системы;
+* Прием и обработка Push-уведомлений.
+
+### 6.2. Backend
+
+Основное приложение платформы.
+
+* Аутентификация и авторизация пользователей;
+* Исполнение бизнес-логики;
+* Серверная валидация данных и бизнес-правил;
+* Управление состоянием и БД;
+* Взаимодействие с внешними провайдерами и сервисами;
+* Транзакционный менеджмент;
+* Логирование и аудит операций.
+
+### 6.3. Auth Module
+
+* Регистрация и аутентификация пользователей;
+* Управление пользовательскими сессиями;
+* Выдача и валидация Access / Refresh JWT-токенов;
+* Восстановление и сброс паролей.
+
+### 6.4. Vehicle Module
+
+* Регистрация и ведение гаража ТС пользователя;
+* Декодирование и валидация VIN через внешние сервисы;
+* Управление базовыми характеристиками авто;
+* Формирование предварительного карточки ТС (Vehicle Preview);
+* Получение списков и фильтрация автомобилей.
+
+### 6.5. Expense Module
+
+* Учет и категория расходов (топливо, мойка, штрафы, тюнинг);
+* Редактирование и удаление транзакций;
+* Категоризация финансовых записей;
+* Расчет финансовой статистики и аналитики TCO (Total Cost of Ownership).
+
+### 6.6. Maintenance Module
+
+* Ведение истории технического обслуживания;
+* Фиксация сервисных работ и пробега;
+* Учет стоимости запчастей и выполненных работ;
+* Привязка записей ТО к конкретным авто и СТО.
+
+### 6.7. Service Module
+
+* Реестр и каталог автосервисов (СТО);
+* Гео-поиск и фильтрация партнерских СТО;
+* Отображение прайс-листов, услуг и рейтингов;
+* Карточки автосервисов.
+
+### 6.8. Booking Module
+
+* Создание и управление заявками на запись в СТО;
+* Связка ТС, услуги, желаемого времени и конкретного СТО;
+* Жизненный цикл заявки (Draft → Created → Confirmed → Completed / Canceled);
+* Обработка отмен и переносов визитов.
 
 ---
 
-## 5. Асинхронная архитектура (Apache Kafka)
+## 7. Data Layer
 
-Применяется для ослабления связности сервисов и фоновой обработки событий.
+### PostgreSQL
 
-### Ключевые топики Kafka
+Основная реляционная СУБД системы. Используется для хранения:
 
-| Topic Name | Producer | Consumer(s) | Назначение |
-| --- | --- | --- | --- |
-| `vehicle.created` | Vehicle Service | Notification Service, Analytics | Событие создания авто. Триггерит пуши и аналитику. |
-| `booking.created` | Booking Service | Notification Service, Partner Portal | Новая запись на СТО. Уведомляет администратора. |
-| `booking.status_changed` | Booking Service | Notification Service | Изменение статуса записи (`CONFIRMED`, `CANCELLED`). |
+* Учетных записей пользователей и прав доступа;
+* Профилей ТС;
+* Истории расходов и сервисных книжек;
+* Реестра СТО и их прайс-листов;
+* Заявок на бронирование;
+* Системных метаданных и логов аудита.
 
-#### Пример формата события `vehicle.created` (JSON Event Schema)
+---
+
+## 8. Object Storage
+
+Файловое хранилище (S3-совместимое) предназначено для бинарных данных:
+
+* Фотографии ТС;
+* Сканы и фото чеков, заказ-нарядов;
+* Документы на автомобиль (СТС/ПТС);
+* Аватары пользователей и логотипы СТО.
+
+*Примечание: Файлы никогда не хранятся в PostgreSQL. В БД сохраняются исключительно метаданные:*
 
 ```json
 {
-  "eventId": "evt_99a8b7c6-1111-4444-8888-999999999999",
-  "eventType": "VEHICLE_CREATED",
-  "timestamp": "2026-08-07T12:00:05Z",
-  "producer": "vehicle-service",
-  "payload": {
-    "vehicleId": "veh_01J123456789",
-    "userId": "usr_01J987654321",
-    "vinMasked": "JTNB********0001",
-    "manufacturer": "Toyota",
-    "model": "Camry"
+  "file_id": "uuid-v4",
+  "object_key": "vehicles/123/photos/car.png",
+  "file_name": "car.png",
+  "mime_type": "image/png",
+  "size": 204800,
+  "created_at": "2026-08-07T12:00:00Z"
+}
+
+```
+
+---
+
+## 9. Внешние интеграции (External Integrations)
+
+* **Vehicle Data Provider:** Сервисы расшифровки VIN (гибкая адаптация под API ГИБДД / Автокод / Внешние парсеры).
+* **Payment Provider (Future):** Эквайринг для оплаты услуг, бронирований и безопасной сделки (не входит в Scope MVP).
+* **Insurance Providers (Future):** Расчет и оформление Е-ОСАГО/КАСКО (не входит в Scope MVP).
+* **Notification Provider:** Firebase Cloud Messaging (Push), SMS-шлюзы (SMS.ru/TargetSMS), Telegram Bot API.
+
+---
+
+## 10. API Layer
+
+Backend предоставляет унифицированный REST API.
+
+```text
+/api/v1/auth
+/api/v1/vehicles
+/api/v1/expenses
+/api/v1/maintenance
+/api/v1/services
+/api/v1/bookings
+
+```
+
+---
+
+## 11. Authentication Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Пользователь
+    participant FE as Frontend
+    participant BE as Backend Router
+    participant Auth as Auth Module
+
+    User->>FE: Ввод логина и пароля
+    FE->>BE: POST /api/v1/auth/login
+    BE->>Auth: Проверка учеток и хэша пароля
+    Auth-->>BE: Генерация JWT (Access + Refresh)
+    BE-->>FE: HTTP 200 OK (Tokens)
+    FE->>FE: Сохранение токенов в secure storage
+    FE->>BE: Запросы с заголовком Authorization: Bearer <Access_Token>
+
+```
+
+---
+
+## 12. Vehicle Lookup Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Пользователь
+    participant FE as Frontend
+    participant Veh as Vehicle Module
+    participant Ext as Vehicle Data Provider
+    participant DB as PostgreSQL
+
+    User->>FE: Ввод VIN
+    FE->>Veh: POST /api/v1/vehicles/lookup {vin}
+    Veh->>Veh: Валидация структуры VIN (17 символов)
+    Veh->>Ext: GET /vin-decoder/{vin}
+    Ext-->>Veh: Данные ТС (Марка, Модель, Год, ДВС)
+    Veh->>Veh: Нормализация ответа
+    Veh-->>FE: Vehicle Preview Object
+    User->>FE: Подтверждение («Добавить в гараж»)
+    FE->>Veh: POST /api/v1/vehicles
+    Veh->>DB: INSERT into vehicles & user_vehicles
+    DB-->>Veh: OK
+    Veh-->>FE: HTTP 201 Created (Vehicle ID)
+
+```
+
+---
+
+## 13. Booking Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Пользователь
+    participant FE as Frontend
+    participant Book as Booking Module
+    participant DB as PostgreSQL
+    participant Notif as Notification Provider
+    actor Partner as СТО / Партнер
+
+    User->>FE: Выбор ТС, СТО, Услуги и Времени
+    FE->>Book: POST /api/v1/bookings
+    Book->>DB: INSERT INTO bookings (status = 'PENDING')
+    DB-->>Book: Booking Created
+    Book->>Notif: Trigger Event (BookingCreated)
+    Notif-->>Partner: Push/Email/TG-уведомление о новой заявке
+    Book-->>FE: HTTP 201 Created (Booking Details)
+
+```
+
+---
+
+## 14. Зависимости модулей (Module Dependencies)
+
+```mermaid
+graph TD
+    Auth[Auth Module] -->|User Context| CoreDomain[System Core]
+    
+    Vehicle[Vehicle Module] -->|User ID| Auth
+    Vehicle -->|VIN Query| ExtVehicle[Vehicle Data Provider]
+    
+    Expense[Expense Module] -->|Vehicle ID| Vehicle
+    
+    Maintenance[Maintenance Module] -->|Vehicle ID| Vehicle
+    Maintenance -->|Service ID| Service[Service Module]
+    
+    Booking[Booking Module] -->|User ID| Auth
+    Booking -->|Vehicle ID| Vehicle
+    Booking -->|Service ID| Service
+
+```
+
+---
+
+## 15. Направление зависимостей (Dependency Direction)
+
+Бизнес-модули не имеют права напрямую запрашивать или мутировать таблицы других модулей в БД.
+
+```text
+[ Booking Module ] ──(Вызов внутреннего Service/Interface)──> [ Vehicle Module ]
+                                                                       │
+                                                            (Доступ к таблице)
+                                                                       ↓
+                                                              [ DB Table: vehicles ]
+
+```
+
+*Прямой доступ `Booking Module` к таблицам `Vehicle Module` в обход сервис-слоя запрещен.*
+
+---
+
+## 16. Границы транзакционности (Transaction Boundary)
+
+Атомарные бизнес-операции оборачиваются в базы данных ACID-транзакции.
+
+Пример при создании авто:
+
+```text
+BEGIN TRANSACTION;
+  1. INSERT INTO vehicles (...);
+  2. INSERT INTO user_vehicles (user_id, vehicle_id, role);
+COMMIT;
+
+```
+
+При возникновении ошибки на любом шаге производится полный `ROLLBACK`.
+
+---
+
+## 17. Обработка ошибок (Error Handling)
+
+Система отдает клиенту строго унифицированный JSON-формат ошибок без раскрытия внутренних стэк-трейсов (Security Best Practice).
+
+```json
+{
+  "error": {
+    "code": "VEHICLE_NOT_FOUND",
+    "message": "Не удалось найти автомобиль с указанным ID.",
+    "requestId": "c4a7e8b9-1234-5678-90ab-cdef12345678",
+    "timestamp": "2026-08-07T12:15:30Z"
   }
 }
 
@@ -171,7 +369,138 @@ graph TB
 
 ---
 
-## 6. Безопасность и Трассировка
+## 18. Наблюдаемость (Observability)
 
-* **Аутентификация:** Выдача `Access Token` (JWT, TTL 15 минут) и `Refresh Token` (Opaque Token, TTL 30 дней).
-* **Distributed Tracing:** Заголовок `X-Request-ID` генерируется на API Gateway, пробрасывается во все внутренние вызовы и события Kafka для сквозного логирования.
+### Logging
+
+Логирование ведется в структурированном JSON-формате (stdout).
+
+* Ошибки уровня `ERROR` и `CRITICAL`;
+* Ответы внешних API и таймауты;
+* Аудит изменений прав и финансовые операции;
+* События аутентификации.
+
+### Metrics
+
+Предполагаемый сбор Prometheus-метрик:
+
+* `http_requests_total`
+* `http_request_duration_seconds`
+* `vehicle_lookup_success_rate`
+* `booking_creation_total`
+
+### Correlation ID
+
+Каждый входящий HTTP-запрос маркируется заголовком `X-Request-ID`, который пробрасывается сквозь все слои и логи для обеспечения сквозного трейсинга.
+
+---
+
+## 19. Безопасность (Security)
+
+* **Authentication:** Пара токенов `Access Token` (short-lived, 15 мин) + `Refresh Token` (long-lived, 30 дней) с механизмом ротации.
+* **Authorization:** Ролевая модель (RBAC / ABAC) с обязательной проверкой владения ресурсом (`user_id == vehicle.owner_id`).
+* **Data Protection:** Использование TLS/HTTPS для всех внешних коммуникаций; хэширование паролей с помощью Argon2id / bcrypt.
+
+---
+
+## 20. Масштабируемость (Scalability)
+
+При росте нагрузки платформа горизонтально масштабируется путем запуск нескольких экземпляров бекенда за Load Balancer'ом (Backend проектируется как **Stateless**).
+
+```mermaid
+graph TD
+    LB[Load Balancer / Nginx] --> BE1[Backend Instance #1]
+    LB --> BE2[Backend Instance #2]
+    LB --> BE3[Backend Instance #N]
+    
+    BE1 --> DB[(PostgreSQL Main)]
+    BE2 --> DB
+    BE3 --> DB
+
+```
+
+---
+
+## 21. Эволюция архитектуры (Future Evolution)
+
+При достижении высокого уровня нагрузки любой из модулей может быть безболезненно вырезан из монолита в самостоятельный микросервис благодаря изолированным границам.
+
+```text
+[ Modular Monolith ] ──(Выделение вызовов в gRPC/Kafka)──> [ Standalone Vehicle Microservice ]
+
+```
+
+---
+
+## 22. Архитектурные решения (ADR)
+
+### ADR-001 — Выбор Modular Monolith для MVP
+
+* **Контекст:** Продукт находится на стадии запуска MVP. Команда разработки компактна, итоговая нагрузка на старте ограничена.
+* **Решение:** Использовать архитектурный паттерн Modular Monolith.
+* **Причины:**
+* Минимальная инфраструктурная сложность;
+* Максимальная скорость разработки и проверки гипотез;
+* Упрощенное локальное окружение и сборка;
+* Единый транзакционный контур;
+* Готовая база для будущего распила.
+
+
+* **Последствия:**
+* (+) Высокая скорость поставки фичей, низкая стоимость сервера;
+* (-) Требуется строгая дисциплина кода, чтобы не допустить спагетти-связей между модулями.
+
+
+
+---
+
+## 23. Ограничения архитектуры (Architecture Constraints)
+
+1. Единое Backend-приложение для MVP;
+2. Единая база данных PostgreSQL;
+3. Внешние сервисы подключаются исключительно через слой адаптеров (`Integration Layer`);
+4. Бинарные файлы не хранятся в БД;
+5. Строгое соблюдение границ модулей.
+
+---
+
+## 24. Матрица рисков (Architecture Risks)
+
+| Риск | Влияние | Вероятность | Митигация |
+| --- | --- | --- | --- |
+| **Резкий рост нагрузки** | Высокое | Средняя | Горизонтальное масштабирование stateless-бекенда |
+| **Сбой/недоступность VIN API** | Высокое | Средняя | Кэширование ответов, использование fallback-провайдера |
+| **Размытие границ модулей** | Среднее | Средняя | Code Review, статическое тестирование связей (ArchUnit) |
+| **Потеря пользовательских файлов** | Высокое | Низкая | Использование S3 с репликацией и версионированием |
+| **Проблемы производительности БД** | Высокое | Средняя | Индексация, оптимизация SQL, использование Read Replica |
+| **Утечка авторизационных данных** | Критическое | Низкая | Короткоживущие JWT, TLS, аудит безопасности |
+
+---
+
+## 25. Текущий статус (Current Status)
+
+| Область | Статус |
+| --- | --- |
+| **Architecture Concept** |  Approved (Modular Monolith) |
+| **High-Level Architecture** |  Defined |
+| **Module Scope** |  Defined |
+| **Data Layer** |  Defined (PostgreSQL + S3) |
+| **Sequence Diagrams** |  Defined (Mermaid) |
+| **ADR-001** |  Accepted |
+| **OpenAPI / Contracts** |  In Progress |
+
+```
+
+---
+
+### Что делать дальше:
+1. Зайди в свой репозиторий `pocket-garage` на GitHub.
+2. Перейди по пути `docs/ru/architecture/system-architecture.md` (или создай этот файл, если его еще нет).
+3. Нажми **Edit** (карандаш) и вставь этот текст.
+4. Сделай commit:
+   ```text
+   docs: convert system architecture to professional spec with Mermaid diagrams
+
+```
+
+Теперь твоя архитектурная документация выглядит как проект высокого инженерного уровня!
