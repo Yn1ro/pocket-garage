@@ -1,0 +1,633 @@
+openapi: 3.0.3
+
+info:
+  title: Карманный гараж API
+  description: |
+    REST API MVP платформы «Карманный гараж».
+
+    API предназначен для управления автомобилями пользователя,
+    получения данных автомобиля по VIN и работы с цифровым гаражом.
+  version: 0.1.0
+
+servers:
+  - url: https://api.karmannyi-garazh.example.com/api/v1
+    description: Production placeholder
+
+tags:
+  - name: Vehicles
+    description: Управление автомобилями пользователя
+  - name: Health
+    description: Проверка состояния API
+
+paths:
+
+  /health:
+
+    get:
+      tags:
+        - Health
+
+      summary: Проверка доступности API
+
+      operationId: healthCheck
+
+      responses:
+
+        '200':
+          description: API работает
+
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /vehicles/lookup:
+
+    post:
+      tags:
+        - Vehicles
+
+      summary: Получить данные автомобиля по VIN
+
+      description: |
+        Выполняет поиск автомобиля по VIN во внешнем источнике данных.
+
+        Результат используется для формирования Vehicle Preview.
+        Автомобиль не сохраняется в базе данных до подтверждения пользователем.
+
+      operationId: lookupVehicleByVin
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+              $ref: '#/components/schemas/VehicleLookupRequest'
+
+            example:
+              vin: XTA00000000000000
+
+      responses:
+
+        '200':
+          description: Данные автомобиля успешно получены
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/VehiclePreviewResponse'
+
+        '400':
+          description: Некорректный VIN
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+              example:
+                error:
+                  code: INVALID_VIN
+                  message: Некорректный VIN
+                  requestId: 550e8400-e29b-41d4-a716-446655440000
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Автомобиль не найден
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '502':
+          description: Внешний поставщик данных недоступен
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vehicles:
+
+    post:
+      tags:
+        - Vehicles
+
+      summary: Добавить автомобиль
+
+      description: |
+        Создаёт автомобиль пользователя на основании подтверждённого
+        Vehicle Preview.
+
+      operationId: createVehicle
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+              $ref: '#/components/schemas/CreateVehicleRequest'
+
+            example:
+              previewId: 550e8400-e29b-41d4-a716-446655440000
+
+      responses:
+
+        '201':
+          description: Автомобиль успешно создан
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/VehicleResponse'
+
+        '400':
+          description: Некорректные данные
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '409':
+          description: Автомобиль уже добавлен
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Vehicles
+
+      summary: Получить автомобили пользователя
+
+      operationId: getUserVehicles
+
+      security:
+        - bearerAuth: []
+
+      responses:
+
+        '200':
+          description: Список автомобилей
+
+          content:
+
+            application/json:
+
+              schema:
+                type: object
+
+                required:
+                  - items
+
+                properties:
+
+                  items:
+                    type: array
+
+                    items:
+                      $ref: '#/components/schemas/VehicleResponse'
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vehicles/{vehicleId}:
+
+    parameters:
+
+      - name: vehicleId
+
+        in: path
+
+        required: true
+
+        description: Уникальный идентификатор автомобиля
+
+        schema:
+          type: string
+          format: uuid
+
+    get:
+
+      tags:
+        - Vehicles
+
+      summary: Получить автомобиль
+
+      operationId: getVehicle
+
+      security:
+        - bearerAuth: []
+
+      responses:
+
+        '200':
+          description: Автомобиль
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/VehicleResponse'
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Автомобиль не найден
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+
+      tags:
+        - Vehicles
+
+      summary: Изменить автомобиль
+
+      operationId: updateVehicle
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleRequest'
+
+      responses:
+
+        '200':
+          description: Автомобиль обновлён
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/VehicleResponse'
+
+        '400':
+          description: Некорректные данные
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Автомобиль не найден
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+
+      tags:
+        - Vehicles
+
+      summary: Удалить автомобиль
+
+      operationId: deleteVehicle
+
+      security:
+        - bearerAuth: []
+
+      responses:
+
+        '204':
+          description: Автомобиль успешно удалён
+
+        '401':
+          description: Пользователь не авторизован
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Автомобиль не найден
+
+          content:
+
+            application/json:
+
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  securitySchemes:
+
+    bearerAuth:
+
+      type: http
+
+      scheme: bearer
+
+      bearerFormat: JWT
+
+  schemas:
+
+    HealthResponse:
+
+      type: object
+
+      required:
+        - status
+        - version
+
+      properties:
+
+        status:
+          type: string
+          example: ok
+
+        version:
+          type: string
+          example: 0.1.0
+
+    VehicleLookupRequest:
+
+      type: object
+
+      required:
+        - vin
+
+      properties:
+
+        vin:
+          type: string
+          minLength: 17
+          maxLength: 17
+          description: VIN автомобиля
+
+          example: XTA00000000000000
+
+    VehiclePreviewResponse:
+
+      type: object
+
+      required:
+        - previewId
+        - vin
+        - manufacturer
+        - model
+        - productionYear
+
+      properties:
+
+        previewId:
+          type: string
+          format: uuid
+
+        vin:
+          type: string
+
+        manufacturer:
+          type: string
+
+          example: LADA
+
+        model:
+          type: string
+
+          example: Vesta
+
+        productionYear:
+          type: integer
+
+          example: 2022
+
+        bodyType:
+          type: string
+
+          nullable: true
+
+          example: sedan
+
+        engine:
+          type: string
+
+          nullable: true
+
+          example: 1.6
+
+    CreateVehicleRequest:
+
+      type: object
+
+      required:
+        - previewId
+
+      properties:
+
+        previewId:
+          type: string
+          format: uuid
+
+    VehicleResponse:
+
+      type: object
+
+      required:
+        - id
+        - vin
+        - manufacturer
+        - model
+        - productionYear
+        - createdAt
+
+      properties:
+
+        id:
+          type: string
+          format: uuid
+
+        vin:
+          type: string
+
+        manufacturer:
+          type: string
+
+        model:
+          type: string
+
+        productionYear:
+          type: integer
+
+        bodyType:
+          type: string
+
+          nullable: true
+
+        engine:
+          type: string
+
+          nullable: true
+
+        mileage:
+          type: integer
+
+          nullable: true
+
+          minimum: 0
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateVehicleRequest:
+
+      type: object
+
+      properties:
+
+        mileage:
+          type: integer
+
+          minimum: 0
+
+          example: 85000
+
+        nickname:
+          type: string
+
+          maxLength: 100
+
+          example: Рабочая машина
+
+    ErrorResponse:
+
+      type: object
+
+      required:
+        - error
+
+      properties:
+
+        error:
+
+          type: object
+
+          required:
+            - code
+            - message
+            - requestId
+
+          properties:
+
+            code:
+              type: string
+
+              example: VEHICLE_NOT_FOUND
+
+            message:
+              type: string
+
+              example: Автомобиль не найден
+
+            requestId:
+              type: string
+
+              format: uuid
