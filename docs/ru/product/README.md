@@ -1,16 +1,16 @@
-# Продуктовая документация
+graph TD
+    Docs[📚 Продуктовая документация]
+    Docs --> Strategy[🎯 Стратегия и Видение]
+    Docs --> Discovery[🔍 Research & CustDev]
+    Docs --> Business[💼 Бизнес и Рынок]
 
-## «Карманный гараж»
+    Strategy --> V[vision.md]
+    Strategy --> P[problem-statement.md]
 
-Единая цифровая экосистема для управления автомобилем, его обслуживанием и расходами.
+    Discovery --> TA[target-audience.md]
+    Discovery --> PER[personas.md]
+    Discovery --> VP[value-proposition.md]
 
-## Содержание
-
-- [Продуктовое видение](./vision.md)
-- [Проблема](./problem-statement.md)
-- [Целевая аудитория](./target-audience.md)
-- [Персоны](./personas.md)
-- [Ценностное предложение](./value-proposition.md)
-- [Конкурентный анализ](./competitive-analysis.md)
-- [Продуктовые гипотезы](./hypotheses.md)
-- [Бизнес-модель](./business-model.md)
+    Business --> CA[competitive-analysis.md]
+    Business --> HYP[hypotheses.md]
+    Business --> BM[business-model.md]
