@@ -325,7 +325,7 @@ graph TD
 graph LR
     Booking[Booking Module] -->|Вызов внутреннего Service/Interface| Vehicle[Vehicle Module]
     Vehicle -->|Доступ к таблице| DB[(DB Table: vehicles)]
----
+```
 
 ## 16. Границы транзакционности (Transaction Boundary)
 
