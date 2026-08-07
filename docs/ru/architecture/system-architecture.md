@@ -30,17 +30,18 @@
 
 В MVP отсутствует нагрузка, оправдывающая подобную инженерную сложность.
 
-```text
-  [ Single Codebase ]
-         │
-         ├── Auth Module
-         ├── Vehicle Module
-         ├── Expense Module
-         ├── Maintenance Module
-         ├── Service Module
-         └── Booking Module
-         │
-  [ Single Database (PostgreSQL) ]
+```mermaid
+graph TD
+    subgraph Monolith ["Single Codebase (Modular Monolith)"]
+        Auth[Auth Module]
+        Veh[Vehicle Module]
+        Exp[Expense Module]
+        Maint[Maintenance Module]
+        Svc[Service Module]
+        Book[Booking Module]
+    end
+
+    Monolith --> DB[(Single Database: PostgreSQL)]
 
 ```
 
@@ -316,21 +317,16 @@ graph TD
 
 ---
 
+**Раздел 15:**
+```markdown
 ## 15. Направление зависимостей (Dependency Direction)
 
 Бизнес-модули не имеют права напрямую запрашивать или мутировать таблицы других модулей в БД.
 
-```text
-[ Booking Module ] ──(Вызов внутреннего Service/Interface)──> [ Vehicle Module ]
-                                                                       │
-                                                            (Доступ к таблице)
-                                                                       ↓
-                                                              [ DB Table: vehicles ]
-
-```
-
-*Прямой доступ `Booking Module` к таблицам `Vehicle Module` в обход сервис-слоя запрещен.*
-
+```mermaid
+graph LR
+    Booking[Booking Module] -->|Вызов внутреннего Service/Interface| Vehicle[Vehicle Module]
+    Vehicle -->|Доступ к таблице| DB[(DB Table: vehicles)]
 ---
 
 ## 16. Границы транзакционности (Transaction Boundary)
