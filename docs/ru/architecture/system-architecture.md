@@ -488,19 +488,3 @@ graph TD
 | **Sequence Diagrams** |  Defined (Mermaid) |
 | **ADR-001** |  Accepted |
 | **OpenAPI / Contracts** |  In Progress |
-
-```
-
----
-
-### Что делать дальше:
-1. Зайди в свой репозиторий `pocket-garage` на GitHub.
-2. Перейди по пути `docs/ru/architecture/system-architecture.md` (или создай этот файл, если его еще нет).
-3. Нажми **Edit** (карандаш) и вставь этот текст.
-4. Сделай commit:
-   ```text
-   docs: convert system architecture to professional spec with Mermaid diagrams
-
-```
-
-Теперь твоя архитектурная документация выглядит как проект высокого инженерного уровня!
