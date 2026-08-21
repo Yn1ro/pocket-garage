@@ -1,4 +1,4 @@
-# API Contract — Vehicle Subsystem
+# API Contract - Vehicle Subsystem
 
 > **Паспорт документа**
 > | Параметр | Значение |
