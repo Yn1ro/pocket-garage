@@ -1,4 +1,4 @@
-# Business Requirements Document (BRD) — «Карманный гараж»
+# Business Requirements Document (BRD) - «Карманный гараж»
 
 > **Паспорт документаation**
 > | Параметр | Значение |
@@ -32,18 +32,18 @@
 
 ## 2. Центральная сущность и цепочка ценности
 
-Вся архитектура требований строится вокруг единственной ключевой сущности — **Vehicle (Автомобиль)**.
+Вся архитектура требований строится вокруг единственной ключевой сущности - **Vehicle (Автомобиль)**.
 
 ```mermaid
 graph TD
-    Vehicle[🚘 Vehicle / Автомобиль]
+    Vehicle[ Vehicle / Автомобиль]
     
-    Vehicle --> Maint[🛠️ Maintenance / ТО]
-    Vehicle --> Hist[📜 Service History]
-    Vehicle --> Exp[💰 Expenses / Расходы]
-    Vehicle --> Parts[🧩 Parts / Запчасти]
-    Vehicle --> Docs[📄 Documents / Документы]
-    Vehicle --> Recs[🤖 AI Recommendations]
+    Vehicle --> Maint[ Maintenance / ТО]
+    Vehicle --> Hist[ Service History]
+    Vehicle --> Exp[ Expenses / Расходы]
+    Vehicle --> Parts[ Parts / Запчасти]
+    Vehicle --> Docs[ Documents / Документы]
+    Vehicle --> Recs[ AI Recommendations]
 
     style Vehicle fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff
 
@@ -53,13 +53,13 @@ graph TD
 
 ```mermaid
 graph LR
-    User[👤 Пользователь] --> Vehicle[🚘 Автомобиль]
-    Vehicle --> Need[⚠️ Потребность]
-    Need --> Info[📊 Информация]
-    Info --> Rec[💡 Рекомендация]
-    Rec --> Service[🔧 СТО / Запчасть]
-    Service --> Trans[💳 Транзакция]
-    Trans --> Hist[📜 История]
+    User[ Пользователь] --> Vehicle[🚘 Автомобиль]
+    Vehicle --> Need[ Потребность]
+    Need --> Info[ Информация]
+    Info --> Rec[ Рекомендация]
+    Rec --> Service[ СТО / Запчасть]
+    Service --> Trans[ Транзакция]
+    Trans --> Hist[ История]
 
     style User fill:#0284c7,color:#fff
     style Trans fill:#16a34a,color:#fff
@@ -89,12 +89,12 @@ graph LR
 
 ```mermaid
 graph TD
-    A[👤 Регистрация] --> B[🚘 Добавление авто по VIN]
-    B --> C[📱 Профиль в Гараже]
-    C --> D[🛠️ Просмотр регламента ТО / Ввод расходов]
-    D --> E[🔍 Поиск подходящего СТО]
-    E --> F[📋 Выбор сервисного предложения]
-    F --> G[📩 Отправка заявки на запись]
+    A[ Регистрация] --> B[ Добавление авто по VIN]
+    B --> C[ Профиль в Гараже]
+    C --> D[ Просмотр регламента ТО / Ввод расходов]
+    D --> E[ Поиск подходящего СТО]
+    E --> F[ Выбор сервисного предложения]
+    F --> G[ Отправка заявки на запись]
 
     style A fill:#0f172a,color:#fff
     style G fill:#0284c7,color:#fff
@@ -105,14 +105,14 @@ graph TD
 
 ```mermaid
 graph LR
-    subgraph Actors ["👥 Business Actors"]
-        U[👤 User / Автовладелец]
-        SP[🏬 Service Provider / СТО]
-        PS[📦 Parts Seller / Продавец]
-        PA[🛡️ Platform Admin / Модератор]
+    subgraph Actors [" Business Actors"]
+        U[ User / Автовладелец]
+        SP[ Service Provider / СТО]
+        PS[ Parts Seller / Продавец]
+        PA[ Platform Admin / Модератор]
     end
 
-    U <--> Platform[📱 «Карманный гараж»]
+    U <--> Platform[ «Карманный гараж»]
     SP <--> Platform
     PS <--> Platform
     PA <--> Platform
@@ -169,12 +169,12 @@ graph LR
 
 ```mermaid
 graph TD
-    BO[🎯 Business Objective] --> BR[📋 Business Requirement]
-    BR --> FR[⚙️ Functional Requirement]
-    FR --> UC[👤 Use Case]
-    UC --> US[📝 User Story]
-    US --> AC[✅ Acceptance Criteria]
-    AC --> TC[🧪 Test Case]
+    BO[ Business Objective] --> BR[ Business Requirement]
+    BR --> FR[ Functional Requirement]
+    FR --> UC[ Use Case]
+    UC --> US[ User Story]
+    US --> AC[ Acceptance Criteria]
+    AC --> TC[ Test Case]
 
     style BO fill:#0284c7,color:#fff
     style AC fill:#16a34a,color:#fff
@@ -185,15 +185,15 @@ graph TD
 
 ```mermaid
 graph LR
-    subgraph Activation ["1️⃣ Активация"]
+    subgraph Activation ["1️ Активация"]
         A1[Reg User] --> A2[Vehicle Added]
     end
 
-    subgraph Engagement ["2️⃣ Вовлеченность"]
+    subgraph Engagement ["2️ Вовлеченность"]
         E1[Vehicle Added] --> E2[First Expense / History Logged]
     end
 
-    subgraph Conversion ["3️⃣ Конверсия"]
+    subgraph Conversion ["3️ Конверсия"]
         C1[Service Search] --> C2[Booking Request Sent]
     end
 
