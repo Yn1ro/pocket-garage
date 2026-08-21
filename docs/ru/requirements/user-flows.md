@@ -1,4 +1,4 @@
-# User Flows & UX Scenarios — «Карманный гараж»
+# User Flows & UX Scenarios - «Карманный гараж»
 
 > **Паспорт документа**
 >
