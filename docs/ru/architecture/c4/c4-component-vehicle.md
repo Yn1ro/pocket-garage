@@ -1,4 +1,4 @@
-# C4 — Component Diagram: Vehicle Module
+# C4 - Component Diagram: Vehicle Module
 
 Спецификация компонентного уровня (C3) архитектурной модели C4 для модуля управления транспортными средствами (`Vehicle Module`) системы «Карманный гараж».
 
