@@ -1,4 +1,4 @@
-# Product Analytics & Event Tracking — «Карманный гараж»
+# Product Analytics & Event Tracking - «Карманный гараж»
 
 > **Паспорт документа**
 >
