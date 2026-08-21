@@ -44,7 +44,7 @@
 * 📄 [**Видение продукта и Гипотезы**](docs/ru/product/vision.md) - УТП, стратегический фокус и фреймворк ICE-приоритизации гипотез.
 * 📄 [**Бизнес-модель и Юнит-экономика**](docs/ru/product/business-model.md) - B2B-комиссии 3-5%, InsurTech/Ads монетизация, KPI и план пилота в Усинске.
 
-### 2. 📑 Требования и Системный Анализ (`docs/ru/requirements/`)
+### 2.  Требования и Системный Анализ (`docs/ru/requirements/`)
 * 📄 [**Бизнес-требования (FR/NFR)**](docs/ru/requirements/business-requirements.md) — Спецификация функциональных требований и матрица трассировки.
 * 📄 [**Use Case UC-001: Добавление ТС по VIN**](docs/ru/requirements/use-cases/UC-001-add-vehicle.md) - Подробный сценарий использования с обработкой ошибок.
 * 📄 [**Логическая модель данных**](docs/ru/requirements/data-model.md) - 8 ключевых сущностей, правила целостности (DI Rules) и индексы.
